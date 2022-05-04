@@ -6,6 +6,9 @@ rm(list=ls())
 # Libraries
 library(DescTools)
 library(scales)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
 
 # Set working directory
 setwd('C:/Users/conno/Documents/School work/STA 5900/Titanic Survival/Data')
@@ -347,7 +350,7 @@ titanic.name$AgeNA[Age.NA] <- 1
 
 titanic.name$Sex <- as.factor(titanic.name$Sex) # Sex is Categorical
 
-# trainSet$Survived <- as.factor(trainSet$Survived)
+titanic$Survived <- as.factor(titanic$Survived)
 
 titanic.name$Pclass <- as.factor(titanic.name$Pclass)
 
@@ -360,7 +363,7 @@ titanic.name$Embarked <- as.factor(titanic.name$Embarked)
 titanic.name$AgeNA <- as.factor(titanic.name$AgeNA)
 
 ## randomly selecting training set
-loop.vector <- c(1:100)
+loop.vector <- c(1:20)
 proportion.correct <- c()
 for (j in loop.vector) {
   
@@ -373,9 +376,82 @@ testSet <- titanic.name[-trainSet$PassengerId,] # Should have length of 178 whic
 TestSet.ID <- testSet$PassengerId
 
 
-# ---------- Creating Model with Trainning Set ----------
+# ---------- Creating Model with Training Set ----------
 
-model <- lm(Survived~Pclass+
+  # ------ Linear Regression Model ------
+model.mlr <- lm(Survived~Pclass+
+                 Sex+
+                 Age+
+                 SibSp+
+                 Parch+
+                 Fare+
+                 Embarked+
+                 nameOccur+
+                 AgeNA,
+               data=trainSet
+)
+
+test.predict <- round(predict(model.mlr,titanic.name),0)
+test.actual <- titanic.name$Survived
+
+accuaracy <- c()
+bluh <- c(1:length(test.actual))
+for (i in bluh) {
+  if (test.actual[i]==test.predict[i]) {
+    accuaracy[i] <- TRUE
+  }
+  else{
+    accuaracy[i] <- FALSE
+  }
+}
+
+proportion.correct[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
+  length(test.actual); proportion.correct[j]
+
+proportion.correct.mlr <- proportion.correct
+mean(proportion.correct.mlr)
+median(proportion.correct.mlr)
+
+
+  # ------ Logisitc Regression Model ------
+
+model.log <- glm(Survived~Pclass+
+                 Sex+
+                 Age+
+                 SibSp+
+                 Parch+
+                 Fare+
+                 Embarked+
+                 nameOccur+
+                 AgeNA,
+               data=trainSet,
+               family = 'binomial'
+)
+
+test.predict <- predict(model.log,titanic.name,type='response')
+test.actual <- titanic.name$Survived
+
+accuaracy <- c()
+bluh <- c(1:length(test.actual))
+for (i in bluh) {
+  if (test.actual[i]==test.predict[i]) {
+    accuaracy[i] <- TRUE
+  }
+  else{
+    accuaracy[i] <- FALSE
+  }
+}
+
+proportion.correct[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
+  length(test.actual); proportion.correct[j]
+
+proportion.correct.log <- proportion.correct; proportion.correct.log
+mean(proportion.correct.log)
+median(proportion.correct.log)
+
+
+# --------- Decision Tree Model ----------
+model <- rpart(Survived~Pclass+
               Sex+
               Age+
               SibSp+
@@ -384,10 +460,13 @@ model <- lm(Survived~Pclass+
               Embarked+
               nameOccur+
               AgeNA,
-            data=trainSet
+            data=trainSet,
+            method='class'
             )
 
-test.predict <- round(predict(model,titanic.name),0)
+rpart.plot(model,extra = 106)
+
+test.predict <- predict(model,titanic.name,type='class')
 test.actual <- titanic.name$Survived
 
 accuaracy <- c()
