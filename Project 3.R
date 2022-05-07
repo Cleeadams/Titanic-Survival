@@ -1,4 +1,4 @@
-# Titanic Classifiaction
+# Titanic Classification
 
 
 rm(list=ls())
@@ -9,6 +9,8 @@ library(scales)
 library(dplyr)
 library(rpart)
 library(rpart.plot)
+library(randomForest)
+library(caret)
 
 # Set working directory
 setwd('C:/Users/conno/Documents/School work/STA 5900/Titanic Survival/Data')
@@ -350,8 +352,6 @@ titanic.name$AgeNA[Age.NA] <- 1
 
 titanic.name$Sex <- as.factor(titanic.name$Sex) # Sex is Categorical
 
-titanic$Survived <- as.factor(titanic$Survived)
-
 titanic.name$Pclass <- as.factor(titanic.name$Pclass)
 
 # titanic.name$SibSp <- as.factor(titanic.name$SibSp)
@@ -363,8 +363,8 @@ titanic.name$Embarked <- as.factor(titanic.name$Embarked)
 titanic.name$AgeNA <- as.factor(titanic.name$AgeNA)
 
 ## randomly selecting training set
-loop.vector <- c(1:20)
-proportion.correct <- c()
+loop.vector <- c(1:10)
+proportion.correct.mlr <- c()
 for (j in loop.vector) {
   
 trainSet <- titanic.name[sample(nrow(titanic.name), 713),] # Should have length of 713 which is 80%
@@ -404,17 +404,30 @@ for (i in bluh) {
     accuaracy[i] <- FALSE
   }
 }
-
-proportion.correct[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
-  length(test.actual); proportion.correct[j]
-
-proportion.correct.mlr <- proportion.correct
+proportion.correct.mlr[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
+  length(test.actual); proportion.correct.mlr[j]
+}
+proportion.correct.mlr
 mean(proportion.correct.mlr)
 median(proportion.correct.mlr)
 
 
   # ------ Logisitc Regression Model ------
 
+titanic.name$Survived <- as.factor(titanic.name$Survived)
+levels(titanic.name$Survived) <- c('No','Yes')
+
+proportion.correct.log <- c()
+for (j in loop.vector) {
+  
+  trainSet <- titanic.name[sample(nrow(titanic.name), 713),] # Should have length of 713 which is 80%
+  
+  trainSet.ID <- trainSet$PassengerId
+  
+  testSet <- titanic.name[-trainSet$PassengerId,] # Should have length of 178 which is 20%
+  
+  TestSet.ID <- testSet$PassengerId
+  
 model.log <- glm(Survived~Pclass+
                  Sex+
                  Age+
@@ -428,7 +441,9 @@ model.log <- glm(Survived~Pclass+
                family = 'binomial'
 )
 
-test.predict <- predict(model.log,titanic.name,type='response')
+test.predict <- round(predict(model.log,titanic.name,type='response'),0)
+test.predict[test.predict==0] <- 'No'
+test.predict[test.predict==1] <- 'Yes'
 test.actual <- titanic.name$Survived
 
 accuaracy <- c()
@@ -442,16 +457,29 @@ for (i in bluh) {
   }
 }
 
-proportion.correct[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
-  length(test.actual); proportion.correct[j]
+proportion.correct.log[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
+  length(test.actual)
+}
 
-proportion.correct.log <- proportion.correct; proportion.correct.log
+proportion.correct.log
 mean(proportion.correct.log)
 median(proportion.correct.log)
 
 
-# --------- Decision Tree Model ----------
-model <- rpart(Survived~Pclass+
+  # --------- Decision Tree Model ----------
+
+proportion.correct.tree <- c()
+for (j in loop.vector) {
+  
+  trainSet <- titanic.name[sample(nrow(titanic.name), 713),] # Should have length of 713 which is 80%
+  
+  trainSet.ID <- trainSet$PassengerId
+  
+  testSet <- titanic.name[-trainSet$PassengerId,] # Should have length of 178 which is 20%
+  
+  TestSet.ID <- testSet$PassengerId
+  
+model.tree <- rpart(Survived~Pclass+
               Sex+
               Age+
               SibSp+
@@ -464,9 +492,9 @@ model <- rpart(Survived~Pclass+
             method='class'
             )
 
-rpart.plot(model,extra = 106)
+rpart.plot(model.tree,extra = 106)
 
-test.predict <- predict(model,titanic.name,type='class')
+test.predict <- predict(model.tree,titanic.name,type='class')
 test.actual <- titanic.name$Survived
 
 accuaracy <- c()
@@ -480,9 +508,57 @@ for (i in bluh) {
     }
 }
 
-proportion.correct[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
-  length(test.actual); proportion.correct[j]
+proportion.correct.tree[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
+  length(test.actual)
 }
-proportion.correct
-mean(proportion.correct)
-median(proportion.correct)
+
+proportion.correct.tree
+mean(proportion.correct.tree)
+median(proportion.correct.tree)
+
+  # ------ Random Forest Regression Model ------
+
+proportion.correct.forest <- c()
+for (j in loop.vector) {
+  
+  trainSet <- titanic.name[sample(nrow(titanic.name), 713),] # Should have length of 713 which is 80%
+  
+  trainSet.ID <- trainSet$PassengerId
+  
+  testSet <- titanic.name[-trainSet$PassengerId,] # Should have length of 178 which is 20%
+  
+  TestSet.ID <- testSet$PassengerId
+  
+model.forest <- randomForest(Survived~Pclass+
+                 Sex+
+                 Age+
+                 SibSp+
+                 Parch+
+                 Fare+
+                 Embarked+
+                 nameOccur+
+                 AgeNA,
+               data=trainSet,
+               proximity=TRUE,
+               method='class'
+)
+
+test.predict <- predict(model.forest,titanic.name,type='class')
+test.actual <- titanic.name$Survived
+
+accuaracy <- c()
+bluh <- c(1:length(test.actual))
+for (i in bluh) {
+  if (test.actual[i]==test.predict[i]) {
+    accuaracy[i] <- TRUE
+  }
+  else{
+    accuaracy[i] <- FALSE
+  }
+}
+proportion.correct.forest[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/ 
+  length(test.actual)
+}
+proportion.correct.forest
+mean(proportion.correct.forest)
+median(proportion.correct.forest)
