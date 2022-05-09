@@ -21,6 +21,64 @@ setwd('C:/Users/conno/Documents/School work/STA 5900/Titanic Survival/Data')
 
 titanic <- read.csv('train.csv')
 
+titanic.test <- read.csv('test.csv')
+
+titanicPlus <- data.frame(titanic, titanic.test)
+
+titanic.test$Survived <- rep(0,nrow(titanic.test))
+
+titanic.test <- rbind(titanic[1, ] , titanic.test)
+titanic.test <- titanic.test[-1,]
+
+# Adjusting Test Set
+
+titanic.test$Sex <- as.factor(titanic.test$Sex)
+
+titanic.test$Embarked <- as.factor(titanic.test$Embarked)
+
+split.name.test <- strsplit(titanic.test$Name, ',')
+
+Lastname.test <- sapply(split.name.test, function(x) x[1])
+Firstname.test <- sapply(split.name.test, function(x) x[2])
+
+split.prefix.test <- StrSplit(Firstname.test, '. ')
+
+titanic.test$prefix <- sapply(split.prefix.test, function(x) x[1])
+titanic.test$prefix[415] <- ' Don'
+
+titanic.test$prefix <- as.factor(titanic.test$prefix)
+
+titanic.test$Lastname <- Lastname.test
+
+titanic.test$nameOccur <- 0
+
+for (i in Lastname.test) {
+  titanic.test$nameOccur[which(Lastname.test==i)] <- 
+    Freq(Lastname.test[Lastname.test==i])$freq
+}
+
+split.cabin.test <- strsplit(titanic.test$Cabin, '')
+
+cabinLetter.test <- sapply(split.cabin.test, function(x) x[1])
+
+titanic.test$cabinletter <- cabinLetter.test
+
+titanic.cabin.na.test <- titanic[-which(is.na(titanic.test$cabinletter)),]
+titanic.cabin.na.test[titanic.cabin.na.test$nameOccur>1,]
+
+list.lastnames.test <- titanic.cabin.na.test$Lastname[titanic.cabin.na.test$nameOccur>1]
+
+for (i in list.lastnames.test) {
+  titanic.test$cabinletter[titanic.test$Lastname==i] <- unique(titanic.cabin.na.test$cabinletter[titanic.cabin.na.test$nameOccur>1 & 
+                                                                                    titanic.cabin.na.test$Lastname==i])[1]
+}
+
+titanic.test$cabinletter <- as.factor(titanic.test$cabinletter)
+
+titanic.test$Fare[153] <- 7.25
+
+
+
 # ------ Fixing N/A Ages ------
 
 # There is a problem with the age column.
@@ -33,7 +91,6 @@ titanic <- read.csv('train.csv')
 titanic$Sex <- as.factor(titanic$Sex)
 
 titanic$Embarked <- as.factor(titanic$Embarked)
-levels(titanic$Embarked)
 
 titanic$Survived <- as.factor(titanic$Survived)
 levels(titanic$Survived) <- c('No','Yes')
@@ -54,6 +111,19 @@ split.prefix <- StrSplit(Firstname, '. ')
 
 titanic$prefix <- sapply(split.prefix, function(x) x[1])
 titanic$prefix <- as.factor(titanic$prefix)
+levels(titanic$prefix) <- c('Capt', 'Col', 'Don', 'Dr', 
+                            'Jonkheer', 'Lady', 'Major', 
+                            'Master', 'Miss', 'Mlle', 
+                            'Mme', 'Mr', 'Mrs', 'Ms', 
+                            'Rev', 'Sir', 'th')
+
+levels(titanic.test$prefix) <- c('Col', 'Don', 'Dr', 
+                                 'Master', 'Miss', 'Mr', 
+                                 'Mrs', 'Ms', 'Rev', 'Capt',
+                                 'Jonkheer', 'Lady', 'Major',
+                                 'Mlle', 'Mme', 'Sir', 'th')
+
+levels(titanic.test$Embarked) <- c('C', 'Q', 'S', '')
 
 titanic$Lastname <- Lastname
 
@@ -64,9 +134,6 @@ for (i in Lastname) {
     Freq(Lastname[Lastname==i])$freq
 }
 
-titanic$Lastname[titanic$nameOccur==1] <- 'different'
-titanic$Lastname <- as.factor(titanic$Lastname)
-
 ## Split Cabin Number
 
 split.cabin <- strsplit(titanic$Cabin, '')
@@ -74,6 +141,16 @@ split.cabin <- strsplit(titanic$Cabin, '')
 cabinLetter <- sapply(split.cabin, function(x) x[1])
 
 titanic$cabinletter <- cabinLetter
+
+titanic.cabin.na <- titanic[-which(is.na(titanic$cabinletter)),]
+titanic.cabin.na[titanic.cabin.na$nameOccur>1,]
+
+list.lastnames <- titanic.cabin.na$Lastname[titanic.cabin.na$nameOccur>1]
+
+for (i in list.lastnames) {
+  titanic$cabinletter[titanic$Lastname==i] <- unique(titanic.cabin.na$cabinletter[titanic.cabin.na$nameOccur>1 & 
+                                                                                    titanic.cabin.na$Lastname==i])[1]
+}
 
 titanic$cabinletter <- as.factor(titanic$cabinletter)
 
@@ -83,6 +160,8 @@ cabin.tree <- randomForest(cabinletter~Fare+
                       Survived+
                       SibSp+
                       Parch+
+                      SibSp*Parch+
+                      Survived*SibSp+
                       Pclass+
                       nameOccur,
                     method='class',
@@ -90,6 +169,20 @@ cabin.tree <- randomForest(cabinletter~Fare+
                     data=titanic,
                     proximity=TRUE
                     )
+
+cabin.tree.test <- randomForest(cabinletter~Fare+
+                             SibSp+
+                             Parch+
+                             SibSp*Parch+
+                             Pclass+
+                             nameOccur,
+                           method='class',
+                           na.action=na.omit,
+                           data=titanic,
+                           proximity=TRUE
+)
+
+#.cabin.tree.best <- cabin.tree: This model is the best right now and can't be removed from rm(list=ls())
 
 predict.cabin <- predict(cabin.tree,titanic[-which(is.na(titanic$cabinletter)),],
         type='class')
@@ -113,7 +206,18 @@ proportion.correct.cabin <- Freq(accuaracy[accuaracy==TRUE])$freq/
 predict.cabin <- predict(cabin.tree,titanic[which(is.na(titanic$cabinletter)),],
                          type='class')
 
+predict.cabin.test <- predict(cabin.tree.test,titanic.test[which(is.na(titanic.test$cabinletter)),],
+                         type='class')
+
+levels(titanic.test$cabinletter) <- levels(titanic$cabinletter)
+
+# Best Prediction
+#predict.cabin <- predict(.cabin.tree.best,titanic[which(is.na(titanic$cabinletter)),],
+#                         type='class')
+
 titanic$cabinletter[which(is.na(titanic$cabinletter))] <- predict.cabin
+
+titanic.test$cabinletter[which(is.na(titanic.test$cabinletter))] <- predict.cabin.test
 
 # ------ Predicting Age ------
 
@@ -127,13 +231,24 @@ mlr <- lm(Age~Sex+
             Pclass+
             nameOccur+
             Survived+
-            Sex*Survived+
             Embarked+
             cabinletter+
             prefix+
             Fare,
           data=titanic.not.na,
           )
+
+mlr.test <- lm(Age~Sex+
+            SibSp+
+            Parch+
+            Pclass+
+            nameOccur+
+            Embarked+
+            cabinletter+
+            prefix+
+            Fare,
+          data=titanic.not.na,
+)
 
 titanic.na <- titanic[rows.na,]
 
@@ -146,6 +261,12 @@ predict.age <- predict(mlr,titanic.na)
 
 titanic$Age[rows.na] <- predict.age
 
+predict.age.test <- predict(mlr.test,titanic.test[which(is.na(titanic.test$Age)),])
+
+titanic.test$Age[which(is.na(titanic.test$Age))] <- predict.age.test
+
+
+
 
 # ------ Random Forest Model ------
 
@@ -157,22 +278,22 @@ trainSet <- titanic[sample(nrow(titanic), 713),] # Should have length of 713 whi
 
 testSet <- titanic[-trainSet$PassengerId,] # Should have length of 178 which is 20%
 
-trainSet$Survived <- as.factor(trainSet$Survived)
-
 model.forest <- randomForest(Survived~Pclass+
                                Sex+
+                               Sex*prefix+
+                               Pclass*SibSp+
                                Age+
                                SibSp+
                                Parch+
                                Fare+
                                Pclass*Fare+
                                SibSp*Parch+
-                               nameOccur+
                                nameOccur*Parch+
+                               nameOccur+
                                prefix+
                                cabinletter+
                                Embarked,
-                             data=trainSet,
+                             data=titanic,
                              proximity=TRUE,
                              method='class'
 )
@@ -198,3 +319,19 @@ proportion.correct.forest[j] <- Freq(accuaracy[accuaracy==TRUE])$freq/
 
 proportion.correct.forest
 mean(proportion.correct.forest)
+median(proportion.correct.forest)
+
+
+
+predict.titanic.test <- predict(model.forest,titanic.test,type='class'); predict.titanic.test
+
+predicted.df <- data.frame(titanic.test$PassengerId,predict.titanic.test)
+
+predicted.df$predict.titanic.test <- as.numeric(predicted.df$predict.titanic.test)
+
+predicted.df$predict.titanic.test[which(predicted.df$predict.titanic.test==1)] <- 0
+predicted.df$predict.titanic.test[predicted.df$predict.titanic.test==2] <- 1
+
+colnames(predicted.df) <- c('PassengerId','Survived')
+
+write.csv(predicted.df,file='predict_test.csv',row.names=FALSE)
