@@ -1,0 +1,180 @@
+---
+title: "STA 5900 Project 2 Age Forward Selection Attempt"
+author: "Theodore De Santos"
+date: "April 2022"
+output:
+    pdf_document:
+      df_print: kable
+---
+
+```{r global_options, include=FALSE}
+# these are some optional settings that will change how some features look
+# you do not need to change them.
+knitr::opts_chunk$set(out.width = "50%", out.height="50%", fig.align="center", warning=FALSE, message=FALSE)
+```
+
+```{r,include=FALSE}
+library(caret)
+library(glmnet)
+library(leaps)
+library(DescTools)
+library(stringr)
+library(scales)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(kernlab)
+library(pracma)
+library(questionr)
+```
+
+The code below does some preparations with the dataset.  
+
+```{r}
+titanic <- read.csv('train.csv')
+
+titanic.test <- read.csv('test.csv')
+
+titanic.test$Survived <- rep('NA',nrow(titanic.test))
+
+titanicPlus <- rbind(titanic, titanic.test)
+
+
+# ---------- Preparing Variables For Models ----------
+
+# Make Variables categorical
+
+titanicPlus$Sex <- as.factor(titanicPlus$Sex)
+titanicPlus$Survived <- as.factor(titanicPlus$Survived)
+levels(titanicPlus$Survived) <- c('No', 'Yes', 'NA')
+titanicPlus$Embarked <- as.factor(titanicPlus$Embarked)
+titanicPlus$Pclass <- as.factor(titanicPlus$Pclass)
+
+# Fare price for Passenger 1044 is blank
+titanicPlus$Fare[titanicPlus$PassengerId==1044] <- 7.5
+
+# Split Name into First and Last
+
+split.name <- strsplit(titanicPlus$Name, ',')
+
+Lastname <- sapply(split.name, function(x) x[1])
+Firstname <- sapply(split.name, function(x) x[2])
+
+titanicPlus$Lastname <- Lastname
+
+# Adding Number of Occurance of Last Name to each person
+
+Lastname.Occur <- Freq(titanicPlus$Lastname)
+
+titanicPlus$Occur <- rep(1,length(Lastname))
+for (i in Lastname.Occur$level) {
+  titanicPlus$Occur[which(Lastname==i)] <- Lastname.Occur[Lastname.Occur$level==i,]$freq
+}
+
+# Split Prefix of First Name
+
+split.prefix <- strsplit(Firstname, '. ')
+
+titanicPlus$Prefix <- sapply(split.prefix, function(x) x[1])
+
+titanicPlus$Prefix <- as.factor(titanicPlus$Prefix)
+
+# Separate Cabin Letter
+
+split.cabin <- strsplit(titanicPlus$Cabin, '')
+
+titanicPlus$Letter <- sapply(split.cabin, function(x) x[1])
+
+# Adding Cabin Letter to Family members
+
+Letters.notNA <- titanicPlus[-which(is.na(titanicPlus$Letter)),]
+
+for (i in Letters.notNA$Lastname[Letters.notNA$Occur>1]) {
+  titanicPlus$Letter[which(Lastname==i)] <- unique(Letters.notNA$Letter[Letters.notNA$Lastname==i])[1]
+}
+
+titanicPlus$Letter <- as.factor(titanicPlus$Letter)
+
+
+
+# ------ Creating CSV for the new dataset ------
+
+write.csv(titanicPlus,'new_train.csv',row.names=FALSE)
+```
+
+The following code will load in the new data set and set the factor variables 
+
+```{r}
+titanicPlus <- read.csv('new_train.csv')
+
+titanicPlus$Survived[892:nrow(titanicPlus)] <- 'NA'
+
+# ------ Changing variable to categorical ------
+
+titanicPlus$Sex <- as.factor(titanicPlus$Sex)
+titanicPlus$Survived <- as.factor(titanicPlus$Survived)
+titanicPlus$Embarked <- as.factor(titanicPlus$Embarked)
+titanicPlus$Pclass <- as.factor(titanicPlus$Pclass)
+titanicPlus$Letter <- as.factor(titanicPlus$Letter)
+titanicPlus$Prefix <- as.factor(titanicPlus$Prefix)
+```
+
+An issue has been that there are missing values in the variables that we need access to, so Connor has used the following code to fill in these missing values
+
+```{r}
+# ---------- Model for Filling in Cabin Letters ----------
+
+# Random Forest Model for predicting Cabin Letters
+loop.vector = c(1:5)
+for (i in loop.vector) {
+  Cabin.Forest <- randomForest(Letter~Fare+
+                               Survived+
+                               SibSp+
+                               Parch+
+                               SibSp*Parch+
+                               Survived*SibSp+
+                               Pclass*Survived+
+                               Pclass+
+                               Occur,
+                             method='class',
+                             na.action=na.omit,
+                             data=titanicPlus,
+                             proximity=TRUE
+                             )
+
+if (length(which(is.na(titanicPlus$Letter)))>0){
+  cabin.na <-which(is.na(titanicPlus$Letter))
+}
+}
+
+
+
+predict.Letter <- predict(Cabin.Forest,titanicPlus[cabin.na,],
+                         type='class')
+
+titanicPlus$Letter[cabin.na] <- predict.Letter
+```
+
+Here is the forward selection 
+
+
+```{r}
+  # Creating Age.Na column for Ages not entered
+
+if (length(which(is.na(titanicPlus$Age)))>0){
+  Age.na <- which(is.na(titanicPlus$Age))
+}
+
+titanicPlus$Age.Na <- 0
+titanicPlus$Age.Na[which(is.na(titanicPlus$Age))] <- 1
+
+Age.lm <- lm(Age~.,na.action=na.omit, data=titanicPlus)
+regit.fwd <-regsubsets(Age ~.,na.action=na.omit,data=titanicPlus, method = "forward",nvmax=15)
+bestfwd<-summary(regit.fwd)
+bestfwd$cp
+bestfwd$bic
+bestfwd$adjr2
+bestfwd$which[16,]
+```
+
