@@ -29,6 +29,7 @@ library(pracma)
 library(questionr)
 ```
 
+####################################### PLEASE CHECK IF THE DATASETS ARE THE SAME
 The code below does some preparations with the dataset.  
 
 ```{r}
@@ -201,18 +202,91 @@ This code will establish the new training set that will be used.
 
 This block will first make the proper training and testing set
 
+NOTE:  THE AIC AND Accuaracy (ACC) values may be inaccurate if the dataset manipulation above needed fixing
+
+
 ```{r}
 trainSet <- titanicPlus[-which(titanicPlus$Survived=='NA'),]
+if (length(which(titanicPlus$Survived=='NA'))<1) {
+  trainSet = titanicPlus
+}
+
+trainSet$Survived <- as.numeric(trainSet$Survived)
+trainSet$Survived <- as.factor(trainSet$Survived)
+
+levels(trainSet$Survived) <- c('No', 'Yes')
 ```
+###############################
+
 
 This analysis will focus on fitting logistic regression models.
 
 What will first be done is fitting a logisitic regression model with all variables
 
 ```{r}
-glm.fitall <- glm(Survived ~ ., data = trainSet,family=binomial)
+glm.fitall <- glm(Survived ~ .-Name-Ticket-Lastname-PassengerId-Cabin, data = trainSet,family=binomial)
+phat <- predict(glm.fitall, data=trainSet,type = "response")
+yhat <- rep("No", length.out=nrow(trainSet))
+yhat[which(phat>0.5)] <- "Yes"
+confusionMatrix(trainSet$Survived, yhat, positive='Yes')
+```
+AIC:729.17
+ACC: 0.8361
+
+
+```{r}
+glm.fitall <- glm(Survived ~ .-Name-Ticket-Lastname-PassengerId-Cabin-Parch, data = trainSet,family=binomial)
+phat <- predict(glm.fitall, data=trainSet,type = "response")
+yhat <- rep("No", length.out=nrow(trainSet))
+yhat[which(phat>0.5)] <- "Yes"
+confusionMatrix(trainSet$Survived, yhat, positive='Yes')
+```
+
+AIC 727.86
+ACC: 0.8383
+
+
+```{r}
+glm.fitall <- glm(Survived ~ .-Name-Ticket-Lastname-PassengerId-Cabin-Parch-Age.Na, data = trainSet,family=binomial)
+phat <- predict(glm.fitall, data=trainSet,type = "response")
+yhat <- rep("No", length.out=nrow(trainSet))
+yhat[which(phat>0.5)] <- "Yes"
+confusionMatrix(trainSet$Survived, yhat, positive='Yes')
+```
+
+AIC 725.86
+ACC: 0.8372
+
+```{r}
+glm.fitall <- glm(Survived ~ .-Name-Ticket-Lastname-PassengerId-Cabin-Parch-Age.Na-Sex, data = trainSet,family=binomial)
+phat <- predict(glm.fitall, data=trainSet,type = "response")
+yhat <- rep("No", length.out=nrow(trainSet))
+yhat[which(phat>0.5)] <- "Yes"
+confusionMatrix(trainSet$Survived, yhat, positive='Yes')
+```
+
+AIC 725.33
+ACC: 0.8383
+
+```{r}
+glm.fitall <- glm(Survived ~ .-Name-Ticket-Lastname-PassengerId-Cabin-Parch-Age.Na-Sex-Embarked, data = trainSet,family=binomial)
+phat <- predict(glm.fitall, data=trainSet,type = "response")
+yhat <- rep("No", length.out=nrow(trainSet))
+yhat[which(phat>0.5)] <- "Yes"
+confusionMatrix(trainSet$Survived, yhat, positive='Yes')
+```
+
+AIC 724.76
+ACC: 0.8429
+
+```{r}
+glm.fitall <- glm(Survived ~ .-Name-Ticket-Lastname-PassengerId-Cabin-Parch-Age.Na-Sex-Embarked+Age*Letter, data = trainSet,family=binomial)
 phat <- predict(glm.fitall, data=trainSet,type = "response")
 yhat <- rep("No", length.out=nrow(trainSet))
 yhat[which(phat>0.5)] <- "Yes"
 table(yhat,trainSet$Survived)
+summary(glm.fitall)
 ```
+
+AIC 725.58
+ACC: 0.8462
