@@ -23,9 +23,9 @@ titanic <- read.csv('train.csv')
 
 titanic.test <- read.csv('test.csv')
 
-titanicPlus <- data.frame(titanic, titanic.test)
+titanic.test$Survived <- rep('NA',nrow(titanic.test))
 
-titanic.test$Survived <- rep(0,nrow(titanic.test))
+titanicPlus <- rbind(titanic, titanic.test)
 
 titanic.test <- rbind(titanic[1, ] , titanic.test)
 titanic.test <- titanic.test[-1,]

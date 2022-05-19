@@ -31,7 +31,10 @@ titanicPlus <- rbind(titanic, titanic.test)
 
 # Make Variables categorical
 
-titanicPlus$Sex <- as.factor(titanicPlus$Sex)
+titanicPlus$Sex[titanicPlus$Sex=='female'] <- 1
+titanicPlus$Sex[titanicPlus$Sex=='male'] <- 2
+
+titanicPlus$Sex <- as.numeric(titanicPlus$Sex)
 titanicPlus$Survived <- as.factor(titanicPlus$Survived)
 levels(titanicPlus$Survived) <- c('No', 'Yes', 'NA')
 titanicPlus$Embarked <- as.factor(titanicPlus$Embarked)
@@ -64,8 +67,26 @@ split.prefix <- strsplit(Firstname, '. ')
 
 titanicPlus$Prefix <- sapply(split.prefix, function(x) x[1])
 
-titanicPlus$Prefix <- as.factor(titanicPlus$Prefix)
+titanicPlus$Prefix[which(titanicPlus$Prefix %in% c(' Capt',' Col',
+                                               ' Don',
+                                               ' Jonkheer',
+                                               ' Major',' Rev'
+                                               ))] <- ' Mr'
 
+titanicPlus$Prefix[which(titanicPlus$Prefix==' Dr' &
+                           titanicPlus$Sex=='male')] <- ' Mr'
+
+titanicPlus$Prefix[which(titanicPlus$Prefix %in% c(' Dona',' Mme'
+                                               ))] <- ' Mrs'
+
+titanicPlus$Prefix[which(titanicPlus$Prefix %in% c(' Ms',' Mlle'
+                                               ))] <- ' Miss'
+
+titanicPlus$Prefix[which(titanicPlus$Prefix==' Dr' &
+                           titanicPlus$Sex=='female')] <- ' Mrs'
+
+titanicPlus$Prefix <- as.factor(titanicPlus$Prefix)
+levels(titanicPlus$Prefix)
 # Separate Cabin Letter
 
 split.cabin <- strsplit(titanicPlus$Cabin, '')
@@ -82,7 +103,18 @@ for (i in Letters.notNA$Lastname[Letters.notNA$Occur>1]) {
 
 titanicPlus$Letter <- as.factor(titanicPlus$Letter)
 
+# Adding a Family Size Column
 
+titanicPlus$Family <- titanicPlus$Parch + titanicPlus$SibSp
+
+# Adding a Fare per Person Column
+
+titanicPlus$FPP <- titanicPlus$Fare / (titanicPlus$Family+1)
+
+# Creating an Age.na column: represents with passengers had incomplete Age
+
+titanicPlus$Age.Na <- 0
+titanicPlus$Age.Na[which(is.na(titanicPlus$Age))] <- 1
 
 # ------ Creating CSV for the new dataset ------
 
