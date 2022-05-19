@@ -176,5 +176,15 @@ bestfwd$cp
 bestfwd$bic
 bestfwd$adjr2
 bestfwd$which[16,]
+# From here you pick the best model and enter it manually like so:
+#Age.lm <- lm(Age ~ variables chosen in forward selection, data=titanicPlus)
+#predict.Age <- predict(Age.lm,titanicPlus[-Age.na,])
+
+#RMSE.age <- sqrt(mean((predict.Age - 
+                         titanicPlus$Age[-Age.na])^2)); #RMSE.age
+
+#predict.Age <- predict(Age.lm,titanicPlus[Age.na,])
+
+#titanicPlus$Age[Age.na] <- predict.Age
 ```
 
